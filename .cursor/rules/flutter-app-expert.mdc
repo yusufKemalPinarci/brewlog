@@ -1,0 +1,40 @@
+---
+description: Flutter expert rules from awesome-cursorrules (PatrickJS), adapted for BrewCrew.
+globs: "**/*.{dart,yaml}"
+alwaysApply: false
+---
+
+# Flutter App Expert
+
+Kaynak: [PatrickJS/awesome-cursorrules — Flutter Expert](https://github.com/PatrickJS/awesome-cursorrules/blob/main/rules/flutter-app-expert-cursorrules-prompt-file.mdc)
+
+## Best practices
+
+- Flutter 3.x + Material 3; mevcut proje yapısına uy
+- Clean architecture (data / domain / presentation)
+- State: BLoC veya Cubit
+- Null safety, const constructor, küçük odaklı widget’lar
+- GoRouter ile routing; GetIt ile DI (gerekirse)
+- Offline-first: yerel depolama kaynak; ağ zorunlu değil
+- Platform erişilebilirlik ve performans kurallarına uy
+
+## Proje yapısı (referans)
+
+```
+lib/
+  core/          # theme, constants, utils, widgets
+  features/
+    feature_name/
+      data/
+      domain/
+      presentation/
+  main.dart
+```
+
+Crew orkestrasyonu `lib/` dışında: `.cursor/agents/`, `tooling/local_crew/`.
+
+## Widget & performans
+
+- const kullan; listelerde lazy builder
+- Ağır işi isolate / sync olmayan yola taşı
+- Gereksiz rebuild’i BLoC ile sınırla

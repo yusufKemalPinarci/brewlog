@@ -1,0 +1,55 @@
+---
+description: BrewLog geliştirme crew — otomatik pipeline seçimi + aşama sırası.
+alwaysApply: true
+---
+
+# CrewAI geliştirme standardı (app dışı)
+
+Uygulama kullanıcısına agent/crew gösterme. Crew = Cursor orkestrasyonu.
+
+Kullanıcı pipeline adı / aşama **söylemez**. Her uygulama isteğinde önce rota seç, bir satırda açıkla, uygula.
+
+## Otomatik rota (prompt’a göre)
+
+İlk yanıtta: `Rota: <ad> → aşamalar: …`
+
+| Sinyal (prompt) | Rota | Başlangıç → devam |
+|-----------------|------|-------------------|
+| Yeni özellik, ekran, akış, “ekle/yap”, belirsiz kapsam | **full** | 0→1→2→3→4 |
+| Entity, alan, skor kuralı, yöntem enum | **domain-up** | 1→2→3→4 |
+| Kayıt, JSON, repository, persist, filtre sorgusu | **data-up** | 2→3→4 |
+| UI, tema, metin, layout, BLoC/sayfa (veri modeli aynı) | **ui-up** | 3→4 |
+| Bug, hata, crash, “bozuk” (katman netse oradan) | **fix** | ilgili katman→QA |
+| analyze, test, “kontrol et”, merge öncesi | **qa-only** | 4 |
+| Typo, tek satır, net mikro düzeltme | **hotfix** | doğrudan fix; Task şablonu opsiyonel |
+
+Şüphe → **full**. Kullanıcıya “hangi pipeline?” sorma.
+
+Subagent’lar: `.cursor/agents/`. `/feature-pipeline` = full rotayı zorla (opsiyonel).
+
+## Aşama sırası
+
+| # | Agent | Path |
+|---|-------|------|
+| 0 | Product Lead | kapsam + kabul (Türkçe UX) |
+| 1 | Domain Engineer | `features/dial_in/domain/` |
+| 2 | Data Engineer | `features/dial_in/data/` |
+| 3 | Flutter UI | `presentation/` + `core/theme/` |
+| 4 | QA | `flutter analyze` + `flutter test` |
+
+Geri: QA fail → ilgili aşama. Domain değişince Data→UI→QA yeniden.
+
+## Task sözleşmesi
+
+```
+## Task çıktısı — <rol>
+- Hedef:
+- Değişen dosyalar:
+- Kararlar:
+- Sonraki agent için not:
+```
+
+## Yasak
+
+- `lib/` altında crew UI; kullanıcıya agent tartışması; CrewAI bulut API
+- Dial-in analiz crew (`tooling/local_crew`) ≠ geliştirme pipeline

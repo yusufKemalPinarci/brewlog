@@ -1,0 +1,27 @@
+---
+description: BrewLog ürün kuralları — offline specialty dial-in günlüğü.
+alwaysApply: true
+---
+
+# BrewLog
+
+Tam çevrimdışı specialty kahve dial-in günlüğü.
+
+## Ürün (uygulama içinde Crew YOK)
+
+- Kayıt: çekirdek, yöntem, öğütücü, oran, süre, sıcaklık, tat, skor, favori
+- Liste: ara, yöntem filtresi, favori, sıralama
+- Detay + “bu tariften yeni dial-in”
+- Veri cihazdan çıkmaz; hesap / sunucu / agent paneli yok
+
+## Tasarım
+
+- Espresso charcoal + chartreuse vurgu
+- Tipografi: Fraunces + Figtree
+- İlk ekran: marka + kısa vaat + bir CTA
+- Oyunlaştırmalı ama sade: skor rozeti / “efsane shot” dili; XP, seviye, görev, liderlik yok
+- Karışıklık yok: tek akış (liste → detay → kaydet); ekstra sekme / panel ekleme
+
+## Geliştirme
+
+CrewAI standartları uygulama içinde değil — Cursor/tooling ile kullanılır (bkz. `crewai-dev-standards.mdc`, `tooling/local_crew/`).

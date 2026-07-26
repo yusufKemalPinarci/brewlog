@@ -1,0 +1,19 @@
+---
+description: CrewAI kalıbı yalnızca tooling/local_crew — app’e bağlama.
+globs: "tooling/local_crew/**/*.dart"
+alwaysApply: false
+---
+
+# Local Crew Agents (tooling only)
+
+Bu kod **ürün UI’sında kullanılmaz**. Dial-in **analiz** agent’ları (Grind → Extraction → Sensory → History).
+
+Uygulama **geliştirme** crew’u ayrıdır: `.cursor/agents/` (Product Lead → Domain → Data → UI → QA).
+
+CrewAI kavramları: Agent, Task, Tool, Crew, Process, Memory, kickoff.
+
+## Yasaklar
+
+- `lib/` içinden import
+- CrewAI bulut API / API key
+- Kullanıcıya agent tartışması göstermek

@@ -1,0 +1,5 @@
+package com.brewcrew.brewcrew
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
