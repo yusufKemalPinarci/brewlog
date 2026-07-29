@@ -46,6 +46,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
   DateTime? _roastDate;
   bool _saving = false;
   bool _applyDefaultsOnMethodChange = false;
+  bool _notesExpanded = false;
 
   bool get _isEditing => widget.existing != null;
 
@@ -75,6 +76,10 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
     _score = DialIn.clampScore(source.score);
     _tags = {...source.tasteTags};
     _roastDate = source.roastDate;
+    // Dolu demleme notları varsa bölümü açık başlat.
+    _notesExpanded = source.roastDate != null ||
+        source.pourNotes.trim().isNotEmpty ||
+        source.waterNote.trim().isNotEmpty;
   }
 
   String _numText(double v) {
@@ -232,44 +237,6 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 12),
-            InkWell(
-              onTap: _pickRoastDate,
-              borderRadius: BorderRadius.circular(14),
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: 'Kavurma tarihi (opsiyonel)',
-                  suffixIcon: _roastDate == null
-                      ? const Icon(Icons.calendar_today_outlined)
-                      : IconButton(
-                          tooltip: 'Temizle',
-                          onPressed: () =>
-                              setState(() => _roastDate = null),
-                          icon: const Icon(Icons.clear),
-                        ),
-                ),
-                child: Text(
-                  _roastDate == null
-                      ? 'Seçilmedi'
-                      : DateFormat('d MMMM yyyy', 'tr').format(_roastDate!),
-                  style: TextStyle(
-                    color: _roastDate == null
-                        ? BrewTheme.mute
-                        : BrewTheme.foam,
-                  ),
-                ),
-              ),
-            ),
-            if (freshness != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                freshness,
-                style: GoogleFonts.figtree(
-                  color: BrewTheme.chartreuse,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
             DropdownButtonFormField<BrewMethod>(
               key: ValueKey(_method),
               initialValue: _method,
@@ -415,20 +382,92 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
               },
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _pour,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Pour notu',
-                hintText: 'örn. 40g bloom · 2. pour 150g',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _waterNote,
-              decoration: const InputDecoration(
-                labelText: 'Su notu',
-                hintText: 'örn. yumuşak / filtreli',
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                initiallyExpanded: _notesExpanded,
+                onExpansionChanged: (v) => setState(() => _notesExpanded = v),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 4),
+                title: Text(
+                  'Demleme notları',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: BrewTheme.foam,
+                  ),
+                ),
+                subtitle: Text(
+                  _notesExpanded
+                      ? 'Kavrum, pour, su'
+                      : 'Kavrum · pour · su (isteğe bağlı)',
+                  style: const TextStyle(
+                    color: BrewTheme.mute,
+                    fontSize: 13,
+                  ),
+                ),
+                iconColor: BrewTheme.chartreuse,
+                collapsedIconColor: BrewTheme.mute,
+                children: [
+                  InkWell(
+                    onTap: _pickRoastDate,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Kavurma tarihi (opsiyonel)',
+                        suffixIcon: _roastDate == null
+                            ? const Icon(Icons.calendar_today_outlined)
+                            : IconButton(
+                                tooltip: 'Temizle',
+                                onPressed: () =>
+                                    setState(() => _roastDate = null),
+                                icon: const Icon(Icons.clear),
+                              ),
+                      ),
+                      child: Text(
+                        _roastDate == null
+                            ? 'Seçilmedi'
+                            : DateFormat('d MMMM yyyy', 'tr')
+                                .format(_roastDate!),
+                        style: TextStyle(
+                          color: _roastDate == null
+                              ? BrewTheme.mute
+                              : BrewTheme.foam,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (freshness != null) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        freshness,
+                        style: GoogleFonts.figtree(
+                          color: BrewTheme.chartreuse,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _pour,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Pour notu',
+                      hintText: 'örn. 40g bloom · 2. pour 150g',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _waterNote,
+                    decoration: const InputDecoration(
+                      labelText: 'Su notu',
+                      hintText: 'örn. yumuşak / filtreli',
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 18),

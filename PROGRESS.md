@@ -6,7 +6,7 @@
 **Son güncelleme:** 2026-07-29  
 **Repo:** https://github.com/yusufKemalPinarci/brewlog  
 **Branch:** `main`  
-**Çalışma ağacı:** P1–P5 gelişim planı uygulandı (commit bekliyor)
+**Çalışma ağacı:** P1–P5 commit’li; editör collapse + detay yan yana karşılaştırma eklendi
 
 ---
 
@@ -27,6 +27,18 @@
 - Kullanıcı pipeline adı söylemez; agent rota seçer
 - Handoff: bu dosya — her anlamlı iş bitince güncelle
 
+### Prompt iskeleti (tek dilim)
+
+```
+Hedef: <tek cümle>
+Neden: <acı>
+Kapsam içi: <2–4 madde>
+Kapsam dışı: <örn. yeni sekme yok>
+Kabul: <3–5 checklist>
+```
+
+Döngü: kullan → bir acı → tek prompt → analyze/test → bu dosyayı güncelle.
+
 ---
 
 ## Git durumu
@@ -35,8 +47,8 @@
 |----|--------|
 | İlk push | ✅ |
 | UX polish + domain/cubit fix | ✅ `main` |
-| `PROGRESS.md` handoff | ✅ |
-| P1–P5 yol haritası | ✅ kodda (commit kullanıcıya) |
+| P1–P5 dial-in depth | ✅ commit `93a0f38` (push bekliyor) |
+| Editör collapse + yan yana karşılaştırma | ✅ lokal (commit bu oturum) |
 
 ---
 
@@ -50,13 +62,16 @@
 | P3 Hafıza | ✅ | Çekirdek/kavurucu/öğütücü autocomplete + chip |
 | P4 Yerel içgörü | ✅ | Skor trendi, tek değişken notu, efsane strip |
 | P5 Veri güvenliği | ✅ | JSON dışa aktar (share) / içe al (yapıştır veya son yedek) |
+| Editör sadeleştirme | ✅ | Demleme notları collapse (kavrum/pour/su) |
+| Önceki deneme karşılaştırması | ✅ | Detayda skor/öğütü/doz/oran yan yana |
 
 ---
 
 ## Sonraki adımlar (öncelik)
 
-1. İstenirse P1–P5 değişikliklerini commit / push
-2. Cihazda manuel smoke: yeni kayıt → kronometre → yedek dışa/içe
+1. İstenirse `git push` (1–2 commit ahead)
+2. Cihazda manuel smoke: yeni kayıt → kronometre → yedek dışa/içe → detay karşılaştırma
+3. Sonraki dilim (isteğe bağlı): yöntem şablonları UI / test genişletme / store ikon
 
 ---
 
@@ -71,3 +86,4 @@
 | 2026-07-28 | PR split önerildi (kullanılmadı) |
 | 2026-07-29 | `PROGRESS.md` handoff; polish + handoff `main`'e push |
 | 2026-07-29 | P1–P5: hints/insights domain, editor/detail/home, yedek, testler |
+| 2026-07-29 | P1–P5 commit; editör Demleme notları; detay yan yana metrik |

@@ -156,6 +156,10 @@ class DialInDetailPage extends StatelessWidget {
                   accent: BrewTheme.mute,
                 ),
               ],
+              if (previous != null) ...[
+                const SizedBox(height: 16),
+                _SideBySideCompare(current: d, previous: previous),
+              ],
               if (history.length >= 2) ...[
                 const SizedBox(height: 20),
                 Text(
@@ -305,6 +309,167 @@ class DialInDetailPage extends StatelessWidget {
       await context.read<DialInCubit>().remove(item.id);
       if (context.mounted) Navigator.of(context).pop();
     }
+  }
+}
+
+class _SideBySideCompare extends StatelessWidget {
+  const _SideBySideCompare({
+    required this.current,
+    required this.previous,
+  });
+
+  final DialIn current;
+  final DialIn previous;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      (
+        'Skor',
+        '${current.score}/10',
+        '${previous.score}/10',
+        current.score != previous.score,
+      ),
+      (
+        'Öğütü',
+        current.grindSetting,
+        previous.grindSetting,
+        current.grindSetting != previous.grindSetting,
+      ),
+      (
+        'Doz',
+        '${current.doseGrams} g',
+        '${previous.doseGrams} g',
+        current.doseGrams != previous.doseGrams,
+      ),
+      (
+        'Oran',
+        current.formattedRatio,
+        previous.formattedRatio,
+        current.formattedRatio != previous.formattedRatio,
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Önceki denemeyle',
+          style: GoogleFonts.fraunces(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: BrewTheme.roast,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      flex: 2,
+                      child: SizedBox.shrink(),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Bu',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.figtree(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: BrewTheme.chartreuse,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Önceki',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.figtree(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: BrewTheme.mute,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                for (final row in rows) ...[
+                  _CompareRow(
+                    label: row.$1,
+                    current: row.$2,
+                    previous: row.$3,
+                    changed: row.$4,
+                  ),
+                  if (row != rows.last) const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompareRow extends StatelessWidget {
+  const _CompareRow({
+    required this.label,
+    required this.current,
+    required this.previous,
+    required this.changed,
+  });
+
+  final String label;
+  final String current;
+  final String previous;
+  final bool changed;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = changed ? BrewTheme.chartreuse : BrewTheme.foam;
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: BrewTheme.mute,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            current,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.fraunces(
+              fontSize: 16,
+              color: accent,
+              fontWeight: changed ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            previous,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.fraunces(
+              fontSize: 16,
+              color: changed ? BrewTheme.mute : BrewTheme.foam,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
