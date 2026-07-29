@@ -41,6 +41,17 @@ class DialIn extends Equatable {
 
   String get formattedRatio => '1:${ratio.toStringAsFixed(1)}';
 
+  static int clampScore(int score) => score.clamp(1, 10);
+
+  /// Aynı tarif parametreleriyle yeni deneme (favori kapalı, yeni id/tarih).
+  DialIn asNewAttempt({required String newId, DateTime? at}) {
+    return copyWith(
+      id: newId,
+      createdAt: at ?? DateTime.now(),
+      isFavorite: false,
+    );
+  }
+
   DialIn copyWith({
     String? id,
     DateTime? createdAt,
@@ -106,11 +117,11 @@ class DialIn extends Equatable {
         orElse: () => BrewMethod.other,
       ),
       grindSetting: json['grindSetting'] as String? ?? '',
-      doseGrams: (json['doseGrams'] as num).toDouble(),
-      yieldGrams: (json['yieldGrams'] as num).toDouble(),
-      brewSeconds: json['brewSeconds'] as int,
-      waterTempC: (json['waterTempC'] as num).toDouble(),
-      score: json['score'] as int,
+      doseGrams: (json['doseGrams'] as num?)?.toDouble() ?? 0,
+      yieldGrams: (json['yieldGrams'] as num?)?.toDouble() ?? 0,
+      brewSeconds: (json['brewSeconds'] as num?)?.toInt() ?? 0,
+      waterTempC: (json['waterTempC'] as num?)?.toDouble() ?? 0,
+      score: clampScore((json['score'] as num?)?.toInt() ?? 5),
       notes: json['notes'] as String? ?? '',
       tasteTags: (json['tasteTags'] as List<dynamic>? ?? [])
           .map(

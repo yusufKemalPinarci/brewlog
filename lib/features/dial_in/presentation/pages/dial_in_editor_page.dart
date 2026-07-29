@@ -10,9 +10,13 @@ import '../bloc/dial_in_cubit.dart';
 import '../widgets/shot_score.dart';
 
 class DialInEditorPage extends StatefulWidget {
-  const DialInEditorPage({super.key, this.existing});
+  const DialInEditorPage({super.key, this.existing, this.seed});
 
+  /// Düzenlenen kayıt (varsa güncelleme).
   final DialIn? existing;
+
+  /// Yeni deneme için ön doldurma (tekrar dene).
+  final DialIn? seed;
 
   @override
   State<DialInEditorPage> createState() => _DialInEditorPageState();
@@ -32,11 +36,16 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
   late BrewMethod _method;
   late int _score;
   late Set<TasteTag> _tags;
+  bool _saving = false;
+
+  bool get _isEditing => widget.existing != null;
+
+  static const _decimal = TextInputType.numberWithOptions(decimal: true);
 
   @override
   void initState() {
     super.initState();
-    final e = widget.existing;
+    final e = widget.existing ?? widget.seed;
     _bean = TextEditingController(text: e?.beanName ?? '');
     _roaster = TextEditingController(text: e?.roaster ?? '');
     _grind = TextEditingController(text: e?.grindSetting ?? '');
@@ -47,7 +56,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
     _temp = TextEditingController(text: e?.waterTempC.toString() ?? '93');
     _notes = TextEditingController(text: e?.notes ?? '');
     _method = e?.method ?? BrewMethod.espresso;
-    _score = e?.score ?? 7;
+    _score = DialIn.clampScore(e?.score ?? 7);
     _tags = {...?e?.tasteTags};
   }
 
@@ -67,7 +76,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
 
   DialIn _buildModel() {
     return DialIn(
-      id: widget.existing?.id ?? const Uuid().v4(),
+      id: widget.existing?.id ?? widget.seed?.id ?? const Uuid().v4(),
       createdAt: widget.existing?.createdAt ?? DateTime.now(),
       beanName: _bean.text.trim(),
       roaster: _roaster.text.trim(),
@@ -77,28 +86,38 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
       yieldGrams: double.parse(_yield.text.replaceAll(',', '.')),
       brewSeconds: int.parse(_seconds.text),
       waterTempC: double.parse(_temp.text.replaceAll(',', '.')),
-      score: _score,
+      score: DialIn.clampScore(_score),
       notes: _notes.text.trim(),
       tasteTags: _tags.toList(),
       grinderName: _grinder.text.trim(),
+      isFavorite: widget.existing?.isFavorite ?? false,
     );
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    final model = _buildModel();
-    await context.read<DialInCubit>().save(model);
-    if (!mounted) return;
-    Navigator.of(context).pop();
+    if (_saving || !_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      final model = _buildModel();
+      await context.read<DialInCubit>().save(model);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final title = _isEditing
+        ? 'Denemeyi düzenle'
+        : (widget.seed != null ? 'Yeni deneme (kopya)' : 'Yeni deneme');
+
     return Scaffold(
       backgroundColor: BrewTheme.espresso,
       appBar: AppBar(
         title: Text(
-          widget.existing == null ? 'Yeni deneme' : 'Denemeyi düzenle',
+          title,
           style: GoogleFonts.fraunces(fontWeight: FontWeight.w600),
         ),
       ),
@@ -117,6 +136,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _bean,
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(labelText: 'Çekirdek'),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Zorunlu' : null,
@@ -124,6 +144,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _roaster,
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(labelText: 'Kavurucu'),
             ),
             const SizedBox(height: 12),
@@ -141,13 +162,15 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _grinder,
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(labelText: 'Öğütücü'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _grind,
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Öğütü ayarı',
+                labelText: 'Öğütüm ayarı',
                 hintText: 'örn. 14 / 2.3.0',
               ),
               validator: (v) =>
@@ -159,7 +182,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
                 Expanded(
                   child: TextFormField(
                     controller: _dose,
-                    keyboardType: TextInputType.number,
+                    keyboardType: _decimal,
                     decoration: const InputDecoration(labelText: 'Doz (g)'),
                     validator: _numValidator,
                     onChanged: (_) => setState(() {}),
@@ -169,7 +192,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
                 Expanded(
                   child: TextFormField(
                     controller: _yield,
-                    keyboardType: TextInputType.number,
+                    keyboardType: _decimal,
                     decoration: const InputDecoration(labelText: 'Verim (g)'),
                     validator: _numValidator,
                     onChanged: (_) => setState(() {}),
@@ -197,7 +220,7 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
                 Expanded(
                   child: TextFormField(
                     controller: _temp,
-                    keyboardType: TextInputType.number,
+                    keyboardType: _decimal,
                     decoration: const InputDecoration(labelText: 'Su °C'),
                     validator: _numValidator,
                   ),
@@ -265,13 +288,21 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: FilledButton(
-            onPressed: _save,
+            onPressed: _saving ? null : _save,
             style: FilledButton.styleFrom(
               backgroundColor: BrewTheme.chartreuse,
               foregroundColor: BrewTheme.espresso,
+              disabledBackgroundColor:
+                  BrewTheme.chartreuse.withValues(alpha: 0.4),
               minimumSize: const Size.fromHeight(48),
             ),
-            child: Text('Kaydet · ${shotTitle(_score)}'),
+            child: _saving
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text('Kaydet · ${shotTitle(_score)}'),
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/brew_theme.dart';
 import '../../domain/entities/dial_in.dart';
@@ -30,12 +31,25 @@ class DialInDetailPage extends StatelessWidget {
           return Scaffold(
             backgroundColor: BrewTheme.espresso,
             appBar: AppBar(),
-            body: const Center(child: Text('Kayıt bulunamadı')),
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Kayıt bulunamadı'),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Geri'),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
         final d = dialIn;
-        final date = DateFormat('d MMMM yyyy · HH:mm', 'tr').format(d.createdAt);
+        final date =
+            DateFormat('d MMMM yyyy · HH:mm', 'tr').format(d.createdAt);
 
         return Scaffold(
           backgroundColor: BrewTheme.espresso,
@@ -66,6 +80,11 @@ class DialInDetailPage extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.edit_outlined),
+              ),
+              IconButton(
+                tooltip: 'Sil',
+                onPressed: () => _confirmDelete(context, d),
+                icon: const Icon(Icons.delete_outline),
               ),
             ],
           ),
@@ -128,22 +147,23 @@ class DialInDetailPage extends StatelessWidget {
                 Text(d.notes, style: const TextStyle(height: 1.45)),
               ],
               const SizedBox(height: 32),
-              OutlinedButton(
+              FilledButton(
                 onPressed: () async {
-                  final copy = d.copyWith(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    createdAt: DateTime.now(),
-                    isFavorite: false,
-                  );
+                  final seed = d.asNewAttempt(newId: const Uuid().v4());
                   await Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => BlocProvider.value(
                         value: context.read<DialInCubit>(),
-                        child: DialInEditorPage(existing: copy),
+                        child: DialInEditorPage(seed: seed),
                       ),
                     ),
                   );
                 },
+                style: FilledButton.styleFrom(
+                  backgroundColor: BrewTheme.chartreuse,
+                  foregroundColor: BrewTheme.espresso,
+                  minimumSize: const Size.fromHeight(48),
+                ),
                 child: const Text('Bunu tekrar dene'),
               ),
             ],
@@ -151,6 +171,38 @@ class DialInDetailPage extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, DialIn item) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: BrewTheme.roast,
+        title: Text(
+          'Silinsin mi?',
+          style: GoogleFonts.fraunces(color: BrewTheme.foam),
+        ),
+        content: Text(
+          '${item.beanName} kaydı gidecek.',
+          style: const TextStyle(color: BrewTheme.mute),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: BrewTheme.cherry),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      await context.read<DialInCubit>().remove(item.id);
+      if (context.mounted) Navigator.of(context).pop();
+    }
   }
 }
 
@@ -167,7 +219,7 @@ class _MetricGrid extends StatelessWidget {
       ('Verim', '${dialIn.yieldGrams} g'),
       ('Süre', '${dialIn.brewSeconds} sn'),
       ('Su', '${dialIn.waterTempC} °C'),
-      ('Öğütü', dialIn.grindSetting),
+      ('Öğütüm', dialIn.grindSetting),
       if (dialIn.grinderName.isNotEmpty) ('Öğütücü', dialIn.grinderName),
     ];
 

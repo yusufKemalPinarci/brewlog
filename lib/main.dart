@@ -11,11 +11,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('tr');
   final repository = LocalDialInRepository();
-  runApp(BrewCrewApp(repository: repository));
+  runApp(BrewLogApp(repository: repository));
 }
 
-class BrewCrewApp extends StatelessWidget {
-  const BrewCrewApp({super.key, required this.repository});
+class BrewLogApp extends StatelessWidget {
+  const BrewLogApp({super.key, required this.repository});
 
   final DialInRepository repository;
 

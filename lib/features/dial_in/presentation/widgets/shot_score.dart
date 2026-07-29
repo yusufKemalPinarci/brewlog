@@ -32,22 +32,25 @@ class ShotScoreBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = shotAccent(score);
     final size = compact ? 48.0 : 64.0;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: accent.withValues(alpha: 0.18),
-        border: Border.all(color: accent, width: 2),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        '$score',
-        style: GoogleFonts.fraunces(
-          fontSize: compact ? 20 : 26,
-          fontWeight: FontWeight.w700,
-          color: accent,
-          height: 1,
+    return Semantics(
+      label: 'Skor $score, ${shotTitle(score)}',
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: accent.withValues(alpha: 0.18),
+          border: Border.all(color: accent, width: 2),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '$score',
+          style: GoogleFonts.fraunces(
+            fontSize: compact ? 20 : 26,
+            fontWeight: FontWeight.w700,
+            color: accent,
+            height: 1,
+          ),
         ),
       ),
     );

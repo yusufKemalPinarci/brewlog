@@ -11,8 +11,21 @@ import '../widgets/shot_score.dart';
 import 'dial_in_detail_page.dart';
 import 'dial_in_editor_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,10 +43,21 @@ class HomePage extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: BlocBuilder<DialInCubit, DialInState>(
+          child: BlocConsumer<DialInCubit, DialInState>(
+            listenWhen: (a, b) => a.error != b.error && b.error != null,
+            listener: (context, state) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Bir şey ters gitti. Tekrar dene.'),
+                  backgroundColor: BrewTheme.cherry,
+                ),
+              );
+            },
             builder: (context, state) {
               final visible = state.visible;
               final count = state.items.length;
+              final isEmptyLibrary = count == 0 && !state.loading;
+
               return CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
@@ -79,7 +103,10 @@ class HomePage extends StatelessWidget {
                             duration: const Duration(milliseconds: 480),
                             curve: Curves.easeOutBack,
                             builder: (context, scale, child) {
-                              return Transform.scale(scale: scale, child: child);
+                              return Transform.scale(
+                                scale: scale,
+                                child: child,
+                              );
                             },
                             child: FilledButton(
                               onPressed: () => _openEditor(context),
@@ -98,78 +125,96 @@ class HomePage extends StatelessWidget {
                               child: const Text('Yeni deneme'),
                             ),
                           ),
-                          if (state.bestShot != null) ...[
-                            const SizedBox(height: 20),
-                            _ChampionStrip(
-                              dialIn: state.bestShot!,
-                              onTap: () =>
-                                  _openDetail(context, state.bestShot!),
-                            ),
-                          ],
-                          const SizedBox(height: 22),
-                          TextField(
-                            onChanged: context.read<DialInCubit>().setQuery,
-                            decoration: const InputDecoration(
-                              hintText: 'Ara',
-                              prefixIcon: Icon(Icons.search),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                FilterChip(
-                                  label: const Text('Favoriler'),
-                                  selected: state.favoritesOnly,
-                                  onSelected: context
-                                      .read<DialInCubit>()
-                                      .setFavoritesOnly,
-                                ),
-                                const SizedBox(width: 8),
-                                ...BrewMethod.values.map((m) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: FilterChip(
-                                      label: Text(m.label),
-                                      selected: state.methodFilter == m,
-                                      onSelected: (_) => context
-                                          .read<DialInCubit>()
-                                          .setMethodFilter(m),
-                                    ),
-                                  );
-                                }),
-                              ],
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<DialInSort>(
-                                value: state.sort,
-                                dropdownColor: BrewTheme.roast,
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: DialInSort.newest,
-                                    child: Text('En yeni'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: DialInSort.score,
-                                    child: Text('En yüksek skor'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: DialInSort.bean,
-                                    child: Text('Çekirdek'),
-                                  ),
-                                ],
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    context.read<DialInCubit>().setSort(v);
-                                  }
-                                },
+                          if (!isEmptyLibrary) ...[
+                            if (state.bestShot != null) ...[
+                              const SizedBox(height: 20),
+                              _ChampionStrip(
+                                dialIn: state.bestShot!,
+                                onTap: () =>
+                                    _openDetail(context, state.bestShot!),
+                              ),
+                            ],
+                            const SizedBox(height: 22),
+                            TextField(
+                              controller: _search,
+                              onChanged:
+                                  context.read<DialInCubit>().setQuery,
+                              decoration: const InputDecoration(
+                                hintText: 'Çekirdek veya kavurucu ara',
+                                prefixIcon: Icon(Icons.search),
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 12),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  FilterChip(
+                                    label: const Text('Favoriler'),
+                                    selected: state.favoritesOnly,
+                                    onSelected: context
+                                        .read<DialInCubit>()
+                                        .setFavoritesOnly,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ...BrewMethod.values.map((m) {
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 8),
+                                      child: FilterChip(
+                                        label: Text(m.label),
+                                        selected: state.methodFilter == m,
+                                        onSelected: (_) => context
+                                            .read<DialInCubit>()
+                                            .setMethodFilter(m),
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                DropdownButtonHideUnderline(
+                                  child: DropdownButton<DialInSort>(
+                                    value: state.sort,
+                                    dropdownColor: BrewTheme.roast,
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: DialInSort.newest,
+                                        child: Text('En yeni'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: DialInSort.score,
+                                        child: Text('En yüksek skor'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: DialInSort.bean,
+                                        child: Text('Çekirdek'),
+                                      ),
+                                    ],
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        context
+                                            .read<DialInCubit>()
+                                            .setSort(v);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                if (state.hasActiveFilters)
+                                  TextButton(
+                                    onPressed: () {
+                                      _search.clear();
+                                      context
+                                          .read<DialInCubit>()
+                                          .clearFilters();
+                                    },
+                                    child: const Text('Filtreyi temizle'),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -183,16 +228,45 @@ class HomePage extends StatelessWidget {
                       hasScrollBody: false,
                       child: Padding(
                         padding: const EdgeInsets.all(32),
-                        child: Text(
-                          state.items.isEmpty
-                              ? 'Henüz shot yok.\nİlk denemeni kaydet — skorunu ver.'
-                              : 'Burada bir şey yok.\nFiltreyi gevşet.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.figtree(
-                            color: BrewTheme.mute,
-                            fontSize: 16,
-                            height: 1.5,
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              isEmptyLibrary
+                                  ? 'Henüz shot yok.\nİlk denemeni kaydet — skorunu ver.'
+                                  : 'Burada bir şey yok.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.figtree(
+                                color: BrewTheme.mute,
+                                fontSize: 16,
+                                height: 1.5,
+                              ),
+                            ),
+                            if (!isEmptyLibrary &&
+                                state.hasActiveFilters) ...[
+                              const SizedBox(height: 16),
+                              TextButton(
+                                onPressed: () {
+                                  _search.clear();
+                                  context
+                                      .read<DialInCubit>()
+                                      .clearFilters();
+                                },
+                                child: const Text('Filtreyi temizle'),
+                              ),
+                            ],
+                            if (isEmptyLibrary) ...[
+                              const SizedBox(height: 20),
+                              FilledButton(
+                                onPressed: () => _openEditor(context),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: BrewTheme.chartreuse,
+                                  foregroundColor: BrewTheme.espresso,
+                                ),
+                                child: const Text('İlk denemeyi başlat'),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     )
@@ -214,7 +288,7 @@ class HomePage extends StatelessWidget {
                                 .read<DialInCubit>()
                                 .toggleFavorite(item),
                             onDelete: () =>
-                                context.read<DialInCubit>().remove(item.id),
+                                _confirmDelete(context, item),
                           );
                         },
                       ),
@@ -226,6 +300,37 @@ class HomePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, DialIn item) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: BrewTheme.roast,
+        title: Text(
+          'Silinsin mi?',
+          style: GoogleFonts.fraunces(color: BrewTheme.foam),
+        ),
+        content: Text(
+          '${item.beanName} kaydı gidecek.',
+          style: const TextStyle(color: BrewTheme.mute),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: BrewTheme.cherry),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      await context.read<DialInCubit>().remove(item.id);
+    }
   }
 
   Future<void> _openDetail(BuildContext context, DialIn dialIn) async {
@@ -355,7 +460,11 @@ class _DialInTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${dialIn.method.label} · $date',
+                      [
+                        dialIn.method.label,
+                        if (dialIn.roaster.isNotEmpty) dialIn.roaster,
+                        date,
+                      ].join(' · '),
                       style: const TextStyle(
                         color: BrewTheme.mute,
                         fontSize: 13,
@@ -371,6 +480,11 @@ class _DialInTile extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                tooltip: 'Düzenle',
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, color: BrewTheme.mute),
               ),
               IconButton(
                 tooltip: 'Favori',

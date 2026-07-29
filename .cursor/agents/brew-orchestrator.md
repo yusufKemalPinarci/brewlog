@@ -29,6 +29,7 @@ Sen BrewLog **Orchestrator**’ısın. Kullanıcı `/feature-pipeline` demek zor
 - Tek hedef; aşama bitmeden sonrakine geçme; Task çıktısı yaz.
 - İlgili subagent’ı çağır veya rolünü uygula.
 - QA fail → katmana dön → tekrar QA.
+- Anlamlı iş bitince `PROGRESS.md` güncelle (durum, dosyalar, sonraki adım).
 
 ## Yasak
 

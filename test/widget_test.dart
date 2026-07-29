@@ -24,10 +24,11 @@ class _MemoryRepo implements DialInRepository {
 
 void main() {
   testWidgets('BrewLog ana marka görünür', (tester) async {
-    await tester.pumpWidget(BrewCrewApp(repository: _MemoryRepo()));
+    await tester.pumpWidget(BrewLogApp(repository: _MemoryRepo()));
     await tester.pumpAndSettle();
     expect(find.text('BrewLog'), findsOneWidget);
-    expect(find.text('Yeni dial-in'), findsOneWidget);
+    expect(find.text('Yeni deneme'), findsOneWidget);
+    expect(find.text('İlk denemeyi başlat'), findsOneWidget);
     expect(find.textContaining('Crew'), findsNothing);
   });
 
@@ -69,12 +70,39 @@ void main() {
     cubit.setFavoritesOnly(true);
     expect(cubit.state.visible.length, 1);
     expect(cubit.state.visible.first.beanName, 'Yirgacheffe');
+    expect(cubit.state.loading, isFalse);
 
     cubit.setFavoritesOnly(false);
     cubit.setMethodFilter(BrewMethod.v60);
     expect(cubit.state.visible.length, 1);
     expect(cubit.state.bestShot?.score, 9);
 
+    cubit.clearFilters();
+    expect(cubit.state.hasActiveFilters, isFalse);
+    expect(cubit.state.visible.length, 2);
+
     await cubit.close();
+  });
+
+  test('asNewAttempt favoriyi kapatır ve id değiştirir', () {
+    final original = DialIn(
+      id: 'old',
+      createdAt: DateTime(2026, 1, 1),
+      beanName: 'Test',
+      roaster: 'R',
+      method: BrewMethod.espresso,
+      grindSetting: '10',
+      doseGrams: 18,
+      yieldGrams: 36,
+      brewSeconds: 28,
+      waterTempC: 93,
+      score: 9,
+      isFavorite: true,
+    );
+    final next = original.asNewAttempt(newId: 'new');
+    expect(next.id, 'new');
+    expect(next.isFavorite, isFalse);
+    expect(next.beanName, 'Test');
+    expect(next.score, 9);
   });
 }

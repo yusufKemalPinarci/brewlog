@@ -53,3 +53,8 @@ Geri: QA fail → ilgili aşama. Domain değişince Data→UI→QA yeniden.
 
 - `lib/` altında crew UI; kullanıcıya agent tartışması; CrewAI bulut API
 - Dial-in analiz crew (`tooling/local_crew`) ≠ geliştirme pipeline
+
+## Handoff
+
+Canlı ilerleme: `PROGRESS.md`. Anlamlı iş bitince güncelle (durum, dosyalar, sonraki adım).
+Yeni chat önce `PROGRESS.md` okusun.

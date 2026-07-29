@@ -20,6 +20,11 @@ Kullanıcı aşama veya pipeline adı söylemez. Kural: `.cursor/rules/crewai-de
 Orchestrator: `.cursor/agents/brew-orchestrator.md`  
 `/feature-pipeline` = sadece **full** rotayı zorlamak için (opsiyonel)
 
+## Handoff
+
+Canlı durum: **`PROGRESS.md`** — her oturum/özellik bitince güncelle.
+Yeni chat: önce `PROGRESS.md` oku, oradan devam et.
+
 ## Referans (ürün kodu değil)
 
 - `tooling/local_crew/` — dial-in analiz agent kalıbı (Grind → Extraction → Sensory → History)

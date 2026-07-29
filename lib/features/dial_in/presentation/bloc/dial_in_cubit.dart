@@ -26,6 +26,9 @@ class DialInState extends Equatable {
   final DialInSort sort;
   final String query;
 
+  bool get hasActiveFilters =>
+      methodFilter != null || favoritesOnly || query.trim().isNotEmpty;
+
   List<DialIn> get visible {
     var list = List<DialIn>.from(items);
     if (methodFilter != null) {
@@ -66,6 +69,7 @@ class DialInState extends Equatable {
     List<DialIn>? items,
     bool? loading,
     String? error,
+    bool clearError = false,
     BrewMethod? methodFilter,
     bool clearMethodFilter = false,
     bool? favoritesOnly,
@@ -75,7 +79,7 @@ class DialInState extends Equatable {
     return DialInState(
       items: items ?? this.items,
       loading: loading ?? this.loading,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
       methodFilter:
           clearMethodFilter ? null : (methodFilter ?? this.methodFilter),
       favoritesOnly: favoritesOnly ?? this.favoritesOnly,
@@ -94,11 +98,15 @@ class DialInCubit extends Cubit<DialInState> {
 
   final DialInRepository _repository;
 
-  Future<void> load() async {
-    emit(state.copyWith(loading: true, error: null));
+  Future<void> load() => _refresh(showLoading: true);
+
+  Future<void> _refresh({bool showLoading = false}) async {
+    if (showLoading) {
+      emit(state.copyWith(loading: true, clearError: true));
+    }
     try {
       final items = await _repository.getAll();
-      emit(state.copyWith(items: items, loading: false));
+      emit(state.copyWith(items: items, loading: false, clearError: true));
     } catch (e) {
       emit(state.copyWith(loading: false, error: e.toString()));
     }
@@ -106,17 +114,17 @@ class DialInCubit extends Cubit<DialInState> {
 
   Future<void> save(DialIn dialIn) async {
     await _repository.upsert(dialIn);
-    await load();
+    await _refresh();
   }
 
   Future<void> remove(String id) async {
     await _repository.delete(id);
-    await load();
+    await _refresh();
   }
 
   Future<void> toggleFavorite(DialIn dialIn) async {
     await _repository.upsert(dialIn.copyWith(isFavorite: !dialIn.isFavorite));
-    await load();
+    await _refresh();
   }
 
   void setMethodFilter(BrewMethod? method) {
@@ -137,5 +145,16 @@ class DialInCubit extends Cubit<DialInState> {
 
   void setQuery(String query) {
     emit(state.copyWith(query: query));
+  }
+
+  void clearFilters() {
+    emit(
+      state.copyWith(
+        clearMethodFilter: true,
+        favoritesOnly: false,
+        query: '',
+        sort: DialInSort.newest,
+      ),
+    );
   }
 }
