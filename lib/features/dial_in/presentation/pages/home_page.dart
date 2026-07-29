@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/theme/brew_theme.dart';
 import '../../domain/entities/brew_method.dart';
@@ -47,7 +52,7 @@ class _HomePageState extends State<HomePage> {
             listenWhen: (a, b) => a.error != b.error && b.error != null,
             listener: (context, state) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+                const SnackBar(
                   content: Text('Bir şey ters gitti. Tekrar dene.'),
                   backgroundColor: BrewTheme.cherry,
                 ),
@@ -57,6 +62,7 @@ class _HomePageState extends State<HomePage> {
               final visible = state.visible;
               final count = state.items.length;
               final isEmptyLibrary = count == 0 && !state.loading;
+              final legendary = state.legendary;
 
               return CustomScrollView(
                 slivers: [
@@ -66,14 +72,45 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'BrewLog',
-                            style: GoogleFonts.fraunces(
-                              fontSize: 46,
-                              height: 1.02,
-                              fontWeight: FontWeight.w600,
-                              color: BrewTheme.foam,
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'BrewLog',
+                                  style: GoogleFonts.fraunces(
+                                    fontSize: 46,
+                                    height: 1.02,
+                                    fontWeight: FontWeight.w600,
+                                    color: BrewTheme.foam,
+                                  ),
+                                ),
+                              ),
+                              PopupMenuButton<_BackupAction>(
+                                tooltip: 'Yedek',
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  color: BrewTheme.mute,
+                                ),
+                                color: BrewTheme.roast,
+                                onSelected: (action) =>
+                                    _onBackupAction(context, action),
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: _BackupAction.export,
+                                    child: Text('Yedeği dışa aktar'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: _BackupAction.importMerge,
+                                    child: Text('Yedekten içe al'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: _BackupAction.importReplace,
+                                    child: Text('Yedekle değiştir'),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -132,6 +169,44 @@ class _HomePageState extends State<HomePage> {
                                 dialIn: state.bestShot!,
                                 onTap: () =>
                                     _openDetail(context, state.bestShot!),
+                              ),
+                            ],
+                            if (legendary.length > 1) ...[
+                              const SizedBox(height: 14),
+                              Text(
+                                'Efsane shot’lar',
+                                style: GoogleFonts.figtree(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: BrewTheme.mute,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 40,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: legendary.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 8),
+                                  itemBuilder: (context, index) {
+                                    final item = legendary[index];
+                                    return ActionChip(
+                                      avatar: Text(
+                                        '${item.score}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: BrewTheme.chartreuse,
+                                        ),
+                                      ),
+                                      label: Text(item.beanName),
+                                      onPressed: () =>
+                                          _openDetail(context, item),
+                                    );
+                                  },
+                                ),
                               ),
                             ],
                             const SizedBox(height: 22),
@@ -302,6 +377,179 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _onBackupAction(
+    BuildContext context,
+    _BackupAction action,
+  ) async {
+    final cubit = context.read<DialInCubit>();
+    try {
+      switch (action) {
+        case _BackupAction.export:
+          final path = await cubit.exportBackupPath();
+          await SharePlus.instance.share(
+            ShareParams(
+              files: [XFile(path)],
+              subject: 'BrewLog yedek',
+              text: 'BrewLog dial-in yedeği',
+            ),
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Yedek hazır — paylaşım sayfasından kaydet.'),
+                backgroundColor: BrewTheme.roast,
+              ),
+            );
+          }
+        case _BackupAction.importMerge:
+          await _importBackup(context, replace: false);
+        case _BackupAction.importReplace:
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: BrewTheme.roast,
+              title: Text(
+                'Mevcut kayıtlar silinsin mi?',
+                style: GoogleFonts.fraunces(color: BrewTheme.foam),
+              ),
+              content: const Text(
+                'Yedek dosyasındaki kayıtlar mevcut listenin yerini alır. '
+                'Önce dışa aktarman iyi olur.',
+                style: TextStyle(color: BrewTheme.mute),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Vazgeç'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: BrewTheme.cherry,
+                  ),
+                  child: const Text('Değiştir'),
+                ),
+              ],
+            ),
+          );
+          if (ok == true && context.mounted) {
+            await _importBackup(context, replace: true);
+          }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Yedek işlemi başarısız: $e'),
+            backgroundColor: BrewTheme.cherry,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _importBackup(
+    BuildContext context, {
+    required bool replace,
+  }) async {
+    final controller = TextEditingController();
+    final choice = await showDialog<_ImportChoice>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: BrewTheme.roast,
+        title: Text(
+          replace ? 'Yedekle değiştir' : 'Yedekten içe al',
+          style: GoogleFonts.fraunces(color: BrewTheme.foam),
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'JSON yedeğini yapıştır veya son dışa aktarılan dosyayı yükle.',
+                style: TextStyle(color: BrewTheme.mute),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  hintText: '[ { "id": ... } ]',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _ImportChoice.fromBackupFile),
+            child: const Text('Son yedek dosyası'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, _ImportChoice.fromPaste),
+            style: FilledButton.styleFrom(
+              backgroundColor: BrewTheme.chartreuse,
+              foregroundColor: BrewTheme.espresso,
+            ),
+            child: const Text('Yapıştırılanı al'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == null || !context.mounted) {
+      controller.dispose();
+      return;
+    }
+
+    final cubit = context.read<DialInCubit>();
+    String raw;
+    try {
+      if (choice == _ImportChoice.fromBackupFile) {
+        final dir = await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/brewlog_backup.json');
+        if (!await file.exists()) {
+          throw StateError(
+            'Önce “Yedeği dışa aktar” ile bir yedek oluştur.',
+          );
+        }
+        raw = await file.readAsString();
+      } else {
+        raw = controller.text.trim();
+        if (raw.isEmpty) {
+          final clip = await Clipboard.getData(Clipboard.kTextPlain);
+          raw = clip?.text?.trim() ?? '';
+        }
+        if (raw.isEmpty) {
+          throw StateError('Yapıştırılacak JSON yok.');
+        }
+      }
+    } finally {
+      controller.dispose();
+    }
+
+    final count = await cubit.importJson(raw, replace: replace);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            replace
+                ? '$count kayıt yüklendi (liste değiştirildi).'
+                : '$count kayıt içe alındı.',
+          ),
+          backgroundColor: BrewTheme.roast,
+        ),
+      );
+    }
+  }
+
   Future<void> _confirmDelete(BuildContext context, DialIn item) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -355,6 +603,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
+enum _BackupAction { export, importMerge, importReplace }
+
+enum _ImportChoice { fromPaste, fromBackupFile }
 
 class _ChampionStrip extends StatelessWidget {
   const _ChampionStrip({required this.dialIn, required this.onTap});

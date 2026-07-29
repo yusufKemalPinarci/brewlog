@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/repositories/local_dial_in_repository.dart';
 import '../../domain/entities/brew_method.dart';
 import '../../domain/entities/dial_in.dart';
+import '../../domain/entities/dial_in_insights.dart';
 
 enum DialInSort { newest, score, bean }
 
@@ -63,6 +64,41 @@ class DialInState extends Equatable {
     if (items.isEmpty) return null;
     final copy = [...items]..sort((a, b) => b.score.compareTo(a.score));
     return copy.first;
+  }
+
+  List<DialIn> get legendary => DialInInsights.legendaryShots(items);
+
+  List<String> get recentBeans => DialInInsights.recentBeanNames(items);
+
+  List<String> get recentRoasters => DialInInsights.recentRoasters(items);
+
+  List<String> get recentGrinders => DialInInsights.recentGrinders(items);
+
+  DialIn? bestFor(DialIn dialIn) => DialInInsights.bestForBeanMethod(
+        items,
+        beanName: dialIn.beanName,
+        method: dialIn.method,
+        excludeId: dialIn.id,
+      );
+
+  List<DialIn> historyFor(DialIn dialIn, {int limit = 8}) =>
+      DialInInsights.historyForBeanMethod(
+        items,
+        beanName: dialIn.beanName,
+        method: dialIn.method,
+        excludeId: dialIn.id,
+        limit: limit,
+      );
+
+  DialIn? previousSibling(DialIn dialIn) {
+    final history = DialInInsights.historyForBeanMethod(
+      items,
+      beanName: dialIn.beanName,
+      method: dialIn.method,
+      excludeId: dialIn.id,
+      limit: 1,
+    );
+    return history.isEmpty ? null : history.first;
   }
 
   DialInState copyWith({
@@ -125,6 +161,16 @@ class DialInCubit extends Cubit<DialInState> {
   Future<void> toggleFavorite(DialIn dialIn) async {
     await _repository.upsert(dialIn.copyWith(isFavorite: !dialIn.isFavorite));
     await _refresh();
+  }
+
+  Future<String> exportBackupPath() => _repository.writeBackupFile();
+
+  Future<String> exportJson() => _repository.exportJson();
+
+  Future<int> importJson(String raw, {bool replace = false}) async {
+    final count = await _repository.importJson(raw, replace: replace);
+    await _refresh();
+    return count;
   }
 
   void setMethodFilter(BrewMethod? method) {

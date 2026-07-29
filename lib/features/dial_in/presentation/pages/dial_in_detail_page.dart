@@ -6,7 +6,9 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/brew_theme.dart';
 import '../../domain/entities/dial_in.dart';
+import '../../domain/entities/dial_in_insights.dart';
 import '../bloc/dial_in_cubit.dart';
+import '../widgets/hint_banner.dart';
 import '../widgets/shot_score.dart';
 import 'dial_in_editor_page.dart';
 
@@ -50,6 +52,13 @@ class DialInDetailPage extends StatelessWidget {
         final d = dialIn;
         final date =
             DateFormat('d MMMM yyyy · HH:mm', 'tr').format(d.createdAt);
+        final best = state.bestFor(d);
+        final history = state.historyFor(d);
+        final previous = state.previousSibling(d);
+        final singleVar =
+            DialInInsights.singleVariableNote(d, previous);
+        final tip = d.tasteActionTip;
+        final freshness = d.freshnessTip;
 
         return Scaffold(
           backgroundColor: BrewTheme.espresso,
@@ -102,6 +111,17 @@ class DialInDetailPage extends StatelessWidget {
                   ),
                 ),
               ],
+              if (d.roastDate != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Kavrum ${DateFormat('d MMM yyyy', 'tr').format(d.roastDate!)}'
+                  '${freshness != null ? ' · $freshness' : ''}',
+                  style: const TextStyle(
+                    color: BrewTheme.mute,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               ShotScoreHero(score: d.score),
               const SizedBox(height: 10),
@@ -109,8 +129,59 @@ class DialInDetailPage extends StatelessWidget {
                 d.method.label,
                 style: GoogleFonts.fraunces(fontSize: 22),
               ),
+              if (best != null && best.id != d.id) ...[
+                const SizedBox(height: 16),
+                HintBanner(
+                  label: 'Bu çekirdek + yöntemde zirve',
+                  body:
+                      '${best.score}/10 · ${best.formattedRatio} · öğütü ${best.grindSetting}'
+                      '${best.score > d.score ? ' · bu kayıttan yüksek' : ''}',
+                  onTap: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => BlocProvider.value(
+                          value: context.read<DialInCubit>(),
+                          child: DialInDetailPage(dialInId: best.id),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              if (singleVar != null) ...[
+                const SizedBox(height: 10),
+                HintBanner(
+                  label: 'Karşılaştırma',
+                  body: singleVar,
+                  accent: BrewTheme.mute,
+                ),
+              ],
+              if (history.length >= 2) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Skor trendi',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ScoreTrend(history: [d, ...history].take(8).toList()),
+              ],
               const SizedBox(height: 28),
               _MetricGrid(dialIn: d),
+              if (d.ratioBandHint != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  d.ratioBandHint!,
+                  style: GoogleFonts.figtree(
+                    fontSize: 13,
+                    color: d.ratioBandHint!.contains('dışında')
+                        ? BrewTheme.cherry
+                        : BrewTheme.mute,
+                  ),
+                ),
+              ],
               if (d.tasteTags.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 Text(
@@ -133,6 +204,37 @@ class DialInDetailPage extends StatelessWidget {
                       )
                       .toList(),
                 ),
+              ],
+              if (tip != null) ...[
+                const SizedBox(height: 12),
+                HintBanner(
+                  label: 'Sonraki tek değişken',
+                  body: tip,
+                ),
+              ],
+              if (d.pourNotes.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Text(
+                  'Pour',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(d.pourNotes, style: const TextStyle(height: 1.45)),
+              ],
+              if (d.waterNote.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                Text(
+                  'Su',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(d.waterNote, style: const TextStyle(height: 1.45)),
               ],
               if (d.notes.isNotEmpty) ...[
                 const SizedBox(height: 24),
@@ -203,6 +305,63 @@ class DialInDetailPage extends StatelessWidget {
       await context.read<DialInCubit>().remove(item.id);
       if (context.mounted) Navigator.of(context).pop();
     }
+  }
+}
+
+class _ScoreTrend extends StatelessWidget {
+  const _ScoreTrend({required this.history});
+
+  final List<DialIn> history;
+
+  @override
+  Widget build(BuildContext context) {
+    // Yeniden eskiye gösterim için ters çevirmeden: ilk = güncel.
+    final items = history;
+    return SizedBox(
+      height: 56,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(
+              child: Tooltip(
+                message: '${items[i].score}/10',
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          heightFactor: items[i].score / 10,
+                          widthFactor: 1,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: shotAccent(items[i].score)
+                                  .withValues(alpha: i == 0 ? 1 : 0.55),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${items[i].score}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: BrewTheme.mute,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

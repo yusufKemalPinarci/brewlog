@@ -6,7 +6,7 @@
 **Son güncelleme:** 2026-07-29  
 **Repo:** https://github.com/yusufKemalPinarci/brewlog  
 **Branch:** `main`  
-**Çalışma ağacı:** polish + handoff `main`'e commit/push edildi
+**Çalışma ağacı:** P1–P5 gelişim planı uygulandı (commit bekliyor)
 
 ---
 
@@ -36,13 +36,27 @@
 | İlk push | ✅ |
 | UX polish + domain/cubit fix | ✅ `main` |
 | `PROGRESS.md` handoff | ✅ |
+| P1–P5 yol haritası | ✅ kodda (commit kullanıcıya) |
+
+---
+
+## Yol haritası durumu
+
+| Faz | Durum | Özet |
+|-----|--------|------|
+| P0 Temel günlük | ✅ | Liste / detay / editör / favori |
+| P1 Dial-in derin | ✅ | Geçmiş zirve, oran bandı, tat ipucu, yöntem varsayılanları, kavurma tarihi |
+| P2 Demleme yardım | ✅ | Kronometre → süre, pour notu, su notu |
+| P3 Hafıza | ✅ | Çekirdek/kavurucu/öğütücü autocomplete + chip |
+| P4 Yerel içgörü | ✅ | Skor trendi, tek değişken notu, efsane strip |
+| P5 Veri güvenliği | ✅ | JSON dışa aktar (share) / içe al (yapıştır veya son yedek) |
 
 ---
 
 ## Sonraki adımlar (öncelik)
 
-1. İstenen yeni özellik / UX — `PROGRESS.md`’ye ekle
-2. İstenirse PR dilimleme (artık gerek yok; hepsi `main`’de)
+1. İstenirse P1–P5 değişikliklerini commit / push
+2. Cihazda manuel smoke: yeni kayıt → kronometre → yedek dışa/içe
 
 ---
 
@@ -56,3 +70,4 @@
 | 2026-07-26 | Polish: favori fix, flicker, silme onayı, boş home… |
 | 2026-07-28 | PR split önerildi (kullanılmadı) |
 | 2026-07-29 | `PROGRESS.md` handoff; polish + handoff `main`'e push |
+| 2026-07-29 | P1–P5: hints/insights domain, editor/detail/home, yedek, testler |

@@ -20,6 +20,15 @@ class _MemoryRepo implements DialInRepository {
     items.removeWhere((e) => e.id == dialIn.id);
     items.add(dialIn);
   }
+
+  @override
+  Future<String> exportJson() async => '[]';
+
+  @override
+  Future<int> importJson(String raw, {bool replace = false}) async => 0;
+
+  @override
+  Future<String> writeBackupFile() async => '';
 }
 
 void main() {

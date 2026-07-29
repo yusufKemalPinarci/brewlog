@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/brew_theme.dart';
 import '../../domain/entities/brew_method.dart';
 import '../../domain/entities/dial_in.dart';
+import '../../domain/entities/dial_in_hints.dart';
+import '../../domain/entities/dial_in_insights.dart';
 import '../bloc/dial_in_cubit.dart';
+import '../widgets/brew_timer.dart';
+import '../widgets/hint_banner.dart';
 import '../widgets/shot_score.dart';
 
 class DialInEditorPage extends StatefulWidget {
@@ -33,10 +38,14 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
   late final TextEditingController _seconds;
   late final TextEditingController _temp;
   late final TextEditingController _notes;
+  late final TextEditingController _pour;
+  late final TextEditingController _waterNote;
   late BrewMethod _method;
   late int _score;
   late Set<TasteTag> _tags;
+  DateTime? _roastDate;
   bool _saving = false;
+  bool _applyDefaultsOnMethodChange = false;
 
   bool get _isEditing => widget.existing != null;
 
@@ -46,18 +55,31 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
   void initState() {
     super.initState();
     final e = widget.existing ?? widget.seed;
-    _bean = TextEditingController(text: e?.beanName ?? '');
-    _roaster = TextEditingController(text: e?.roaster ?? '');
-    _grind = TextEditingController(text: e?.grindSetting ?? '');
-    _grinder = TextEditingController(text: e?.grinderName ?? '');
-    _dose = TextEditingController(text: e?.doseGrams.toString() ?? '18');
-    _yield = TextEditingController(text: e?.yieldGrams.toString() ?? '36');
-    _seconds = TextEditingController(text: e?.brewSeconds.toString() ?? '30');
-    _temp = TextEditingController(text: e?.waterTempC.toString() ?? '93');
-    _notes = TextEditingController(text: e?.notes ?? '');
-    _method = e?.method ?? BrewMethod.espresso;
-    _score = DialIn.clampScore(e?.score ?? 7);
-    _tags = {...?e?.tasteTags};
+    _applyDefaultsOnMethodChange = e == null;
+    final blank = e == null
+        ? DialIn.blank(id: const Uuid().v4())
+        : null;
+    final source = e ?? blank!;
+    _bean = TextEditingController(text: source.beanName);
+    _roaster = TextEditingController(text: source.roaster);
+    _grind = TextEditingController(text: source.grindSetting);
+    _grinder = TextEditingController(text: source.grinderName);
+    _dose = TextEditingController(text: _numText(source.doseGrams));
+    _yield = TextEditingController(text: _numText(source.yieldGrams));
+    _seconds = TextEditingController(text: '${source.brewSeconds}');
+    _temp = TextEditingController(text: _numText(source.waterTempC));
+    _notes = TextEditingController(text: source.notes);
+    _pour = TextEditingController(text: source.pourNotes);
+    _waterNote = TextEditingController(text: source.waterNote);
+    _method = source.method;
+    _score = DialIn.clampScore(source.score);
+    _tags = {...source.tasteTags};
+    _roastDate = source.roastDate;
+  }
+
+  String _numText(double v) {
+    if (v == v.roundToDouble()) return '${v.round()}';
+    return v.toString();
   }
 
   @override
@@ -71,12 +93,24 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
     _seconds.dispose();
     _temp.dispose();
     _notes.dispose();
+    _pour.dispose();
+    _waterNote.dispose();
     super.dispose();
+  }
+
+  void _applyMethodDefaults(BrewMethod method) {
+    final d = DialInHints.defaultsFor(method);
+    _dose.text = _numText(d.doseGrams);
+    _yield.text = _numText(d.yieldGrams);
+    _seconds.text = '${d.brewSeconds}';
+    _temp.text = _numText(d.waterTempC);
   }
 
   DialIn _buildModel() {
     return DialIn(
-      id: widget.existing?.id ?? widget.seed?.id ?? const Uuid().v4(),
+      id: widget.existing?.id ??
+          widget.seed?.id ??
+          const Uuid().v4(),
       createdAt: widget.existing?.createdAt ?? DateTime.now(),
       beanName: _bean.text.trim(),
       roaster: _roaster.text.trim(),
@@ -91,6 +125,9 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
       tasteTags: _tags.toList(),
       grinderName: _grinder.text.trim(),
       isFavorite: widget.existing?.isFavorite ?? false,
+      roastDate: _roastDate,
+      pourNotes: _pour.text.trim(),
+      waterNote: _waterNote.text.trim(),
     );
   }
 
@@ -107,11 +144,47 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
     }
   }
 
+  Future<void> _pickRoastDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _roastDate ?? now,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: BrewTheme.chartreuse,
+              onPrimary: BrewTheme.espresso,
+              surface: BrewTheme.roast,
+              onSurface: BrewTheme.foam,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) setState(() => _roastDate = picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = _isEditing
         ? 'Denemeyi düzenle'
         : (widget.seed != null ? 'Yeni deneme (kopya)' : 'Yeni deneme');
+    final state = context.watch<DialInCubit>().state;
+    final liveRatio = _liveRatioValue;
+    final ratioHint = liveRatio == null
+        ? null
+        : DialInHints.ratioHint(_method, liveRatio);
+    final freshness = DialInHints.freshnessHint(_roastDate);
+    final best = DialInInsights.bestForBeanMethod(
+      state.items,
+      beanName: _bean.text,
+      method: _method,
+      excludeId: widget.existing?.id,
+    );
 
     return Scaffold(
       backgroundColor: BrewTheme.espresso,
@@ -133,20 +206,69 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            if (best != null) ...[
+              const SizedBox(height: 12),
+              HintBanner(
+                label: 'Bu çekirdekte en iyi',
+                body:
+                    '${best.beanName} · ${best.score}/10 · ${best.formattedRatio} · ${best.grindSetting}',
+              ),
+            ],
             const SizedBox(height: 12),
-            TextFormField(
+            _SuggestionField(
               controller: _bean,
+              label: 'Çekirdek',
+              suggestions: state.recentBeans,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Çekirdek'),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Zorunlu' : null,
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            _SuggestionField(
               controller: _roaster,
+              label: 'Kavurucu',
+              suggestions: state.recentRoasters,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Kavurucu'),
             ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: _pickRoastDate,
+              borderRadius: BorderRadius.circular(14),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: 'Kavurma tarihi (opsiyonel)',
+                  suffixIcon: _roastDate == null
+                      ? const Icon(Icons.calendar_today_outlined)
+                      : IconButton(
+                          tooltip: 'Temizle',
+                          onPressed: () =>
+                              setState(() => _roastDate = null),
+                          icon: const Icon(Icons.clear),
+                        ),
+                ),
+                child: Text(
+                  _roastDate == null
+                      ? 'Seçilmedi'
+                      : DateFormat('d MMMM yyyy', 'tr').format(_roastDate!),
+                  style: TextStyle(
+                    color: _roastDate == null
+                        ? BrewTheme.mute
+                        : BrewTheme.foam,
+                  ),
+                ),
+              ),
+            ),
+            if (freshness != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                freshness,
+                style: GoogleFonts.figtree(
+                  color: BrewTheme.chartreuse,
+                  fontSize: 13,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             DropdownButtonFormField<BrewMethod>(
               key: ValueKey(_method),
@@ -157,13 +279,29 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
                     (m) => DropdownMenuItem(value: m, child: Text(m.label)),
                   )
                   .toList(),
-              onChanged: (v) => setState(() => _method = v ?? _method),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _method = v;
+                  if (_applyDefaultsOnMethodChange) {
+                    _applyMethodDefaults(v);
+                  }
+                });
+              },
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            _SuggestionField(
               controller: _grinder,
+              label: 'Öğütücü',
+              suggestions: state.recentGrinders,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Öğütücü'),
+              onSelected: (name) {
+                final last =
+                    DialInInsights.lastGrindForGrinder(state.items, name);
+                if (last != null && _grind.text.trim().isEmpty) {
+                  setState(() => _grind.text = last);
+                }
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -176,6 +314,31 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Zorunlu' : null,
             ),
+            if (state.recentGrinders.isNotEmpty &&
+                _grinder.text.trim().isEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: state.recentGrinders.take(4).map((g) {
+                  return ActionChip(
+                    label: Text(g),
+                    onPressed: () {
+                      final last = DialInInsights.lastGrindForGrinder(
+                        state.items,
+                        g,
+                      );
+                      setState(() {
+                        _grinder.text = g;
+                        if (last != null && _grind.text.trim().isEmpty) {
+                          _grind.text = last;
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
@@ -205,6 +368,18 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
               'Oran $_liveRatio',
               style: GoogleFonts.figtree(color: BrewTheme.chartreuse),
             ),
+            if (ratioHint != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                ratioHint,
+                style: GoogleFonts.figtree(
+                  fontSize: 13,
+                  color: ratioHint.contains('dışında')
+                      ? BrewTheme.cherry
+                      : BrewTheme.mute,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
@@ -226,6 +401,35 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            BrewTimer(
+              onApplySeconds: (s) {
+                setState(() => _seconds.text = '$s');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Süre $s sn olarak yazıldı'),
+                    backgroundColor: BrewTheme.roast,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _pour,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Pour notu',
+                hintText: 'örn. 40g bloom · 2. pour 150g',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _waterNote,
+              decoration: const InputDecoration(
+                labelText: 'Su notu',
+                hintText: 'örn. yumuşak / filtreli',
+              ),
             ),
             const SizedBox(height: 18),
             Text(
@@ -275,6 +479,13 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
                 );
               }).toList(),
             ),
+            if (DialInHints.tasteTip(_tags.toList()) != null) ...[
+              const SizedBox(height: 10),
+              HintBanner(
+                label: 'Sonraki tek değişken',
+                body: DialInHints.tasteTip(_tags.toList())!,
+              ),
+            ],
             const SizedBox(height: 12),
             TextFormField(
               controller: _notes,
@@ -309,11 +520,17 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
     );
   }
 
-  String get _liveRatio {
+  double? get _liveRatioValue {
     final dose = double.tryParse(_dose.text.replaceAll(',', '.'));
     final yieldG = double.tryParse(_yield.text.replaceAll(',', '.'));
-    if (dose == null || yieldG == null || dose <= 0) return '—';
-    return '1:${(yieldG / dose).toStringAsFixed(1)}';
+    if (dose == null || yieldG == null || dose <= 0) return null;
+    return yieldG / dose;
+  }
+
+  String get _liveRatio {
+    final r = _liveRatioValue;
+    if (r == null) return '—';
+    return '1:${r.toStringAsFixed(1)}';
   }
 
   String? _numValidator(String? v) {
@@ -326,5 +543,96 @@ class _DialInEditorPageState extends State<DialInEditorPage> {
     if (v == null || v.trim().isEmpty) return 'Zorunlu';
     if (int.tryParse(v) == null) return 'Tam sayı gir';
     return null;
+  }
+}
+
+class _SuggestionField extends StatefulWidget {
+  const _SuggestionField({
+    required this.controller,
+    required this.label,
+    required this.suggestions,
+    this.textInputAction,
+    this.validator,
+    this.onChanged,
+    this.onSelected,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final List<String> suggestions;
+  final TextInputAction? textInputAction;
+  final FormFieldValidator<String>? validator;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSelected;
+
+  @override
+  State<_SuggestionField> createState() => _SuggestionFieldState();
+}
+
+class _SuggestionFieldState extends State<_SuggestionField> {
+  late final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawAutocomplete<String>(
+      textEditingController: widget.controller,
+      focusNode: _focusNode,
+      optionsBuilder: (textEditingValue) {
+        final q = textEditingValue.text.trim().toLowerCase();
+        if (q.isEmpty) return widget.suggestions;
+        return widget.suggestions.where((s) => s.toLowerCase().contains(q));
+      },
+      onSelected: (value) {
+        widget.controller.text = value;
+        widget.controller.selection =
+            TextSelection.collapsed(offset: value.length);
+        widget.onSelected?.call(value);
+        widget.onChanged?.call(value);
+      },
+      fieldViewBuilder: (context, textController, focusNode, onSubmit) {
+        return TextFormField(
+          controller: textController,
+          focusNode: focusNode,
+          textInputAction: widget.textInputAction,
+          decoration: InputDecoration(labelText: widget.label),
+          validator: widget.validator,
+          onChanged: widget.onChanged,
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final opts = options.toList();
+        if (opts.isEmpty) return const SizedBox.shrink();
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            color: BrewTheme.roast,
+            elevation: 4,
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180, maxWidth: 360),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: opts.length,
+                itemBuilder: (context, index) {
+                  final option = opts[index];
+                  return ListTile(
+                    dense: true,
+                    title: Text(option),
+                    onTap: () => onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

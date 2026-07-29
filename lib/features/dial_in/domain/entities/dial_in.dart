@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'brew_method.dart';
+import 'dial_in_hints.dart';
 
 class DialIn extends Equatable {
   const DialIn({
@@ -19,6 +20,9 @@ class DialIn extends Equatable {
     this.tasteTags = const [],
     this.grinderName = '',
     this.isFavorite = false,
+    this.roastDate,
+    this.pourNotes = '',
+    this.waterNote = '',
   });
 
   final String id;
@@ -37,9 +41,24 @@ class DialIn extends Equatable {
   final String grinderName;
   final bool isFavorite;
 
+  /// Opsiyonel kavurma tarihi (tazelik bağlamı; envanter değil).
+  final DateTime? roastDate;
+
+  /// Filtre pour notu (serbest metin; adım motoru değil).
+  final String pourNotes;
+
+  /// Kısa su notu (sertlik vb.; TDS lab değil).
+  final String waterNote;
+
   double get ratio => doseGrams <= 0 ? 0 : yieldGrams / doseGrams;
 
   String get formattedRatio => '1:${ratio.toStringAsFixed(1)}';
+
+  String? get ratioBandHint => DialInHints.ratioHint(method, ratio);
+
+  String? get tasteActionTip => DialInHints.tasteTip(tasteTags);
+
+  String? get freshnessTip => DialInHints.freshnessHint(roastDate);
 
   static int clampScore(int score) => score.clamp(1, 10);
 
@@ -49,6 +68,28 @@ class DialIn extends Equatable {
       id: newId,
       createdAt: at ?? DateTime.now(),
       isFavorite: false,
+    );
+  }
+
+  /// Boş yeni kayıt için yöntem varsayılanları.
+  factory DialIn.blank({
+    required String id,
+    BrewMethod method = BrewMethod.espresso,
+    DateTime? at,
+  }) {
+    final d = DialInHints.defaultsFor(method);
+    return DialIn(
+      id: id,
+      createdAt: at ?? DateTime.now(),
+      beanName: '',
+      roaster: '',
+      method: method,
+      grindSetting: '',
+      doseGrams: d.doseGrams,
+      yieldGrams: d.yieldGrams,
+      brewSeconds: d.brewSeconds,
+      waterTempC: d.waterTempC,
+      score: 7,
     );
   }
 
@@ -68,6 +109,10 @@ class DialIn extends Equatable {
     List<TasteTag>? tasteTags,
     String? grinderName,
     bool? isFavorite,
+    DateTime? roastDate,
+    bool clearRoastDate = false,
+    String? pourNotes,
+    String? waterNote,
   }) {
     return DialIn(
       id: id ?? this.id,
@@ -85,6 +130,9 @@ class DialIn extends Equatable {
       tasteTags: tasteTags ?? this.tasteTags,
       grinderName: grinderName ?? this.grinderName,
       isFavorite: isFavorite ?? this.isFavorite,
+      roastDate: clearRoastDate ? null : (roastDate ?? this.roastDate),
+      pourNotes: pourNotes ?? this.pourNotes,
+      waterNote: waterNote ?? this.waterNote,
     );
   }
 
@@ -104,9 +152,13 @@ class DialIn extends Equatable {
         'tasteTags': tasteTags.map((e) => e.name).toList(),
         'grinderName': grinderName,
         'isFavorite': isFavorite,
+        if (roastDate != null) 'roastDate': roastDate!.toIso8601String(),
+        'pourNotes': pourNotes,
+        'waterNote': waterNote,
       };
 
   factory DialIn.fromJson(Map<String, dynamic> json) {
+    final roastRaw = json['roastDate'] as String?;
     return DialIn(
       id: json['id'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -133,6 +185,11 @@ class DialIn extends Equatable {
           .toList(),
       grinderName: json['grinderName'] as String? ?? '',
       isFavorite: json['isFavorite'] as bool? ?? false,
+      roastDate: roastRaw != null && roastRaw.isNotEmpty
+          ? DateTime.tryParse(roastRaw)
+          : null,
+      pourNotes: json['pourNotes'] as String? ?? '',
+      waterNote: json['waterNote'] as String? ?? '',
     );
   }
 
@@ -153,5 +210,8 @@ class DialIn extends Equatable {
         tasteTags,
         grinderName,
         isFavorite,
+        roastDate,
+        pourNotes,
+        waterNote,
       ];
 }
